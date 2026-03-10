@@ -3,7 +3,39 @@ import * as path from "path";
 import { execSync } from "child_process";
 import { encryptPwd, createMaterial } from './encrypt_key';
 import * as json5 from "json5";
-import { detectProjectSdkVersion } from './sdkUtils';
+
+/**
+ * Detects the project SDK version by reading the compileSdkVersion field from build-profile.json5 at the project root.
+ *
+ * @param projectRoot The absolute path to the project root directory.
+ * @returns The compileSdkVersion as a number, or undefined if not found or on error.
+ */
+export function detectProjectSdkVersion(projectRoot: string): number | undefined {
+    try {
+        const buildProfilePath = path.join(projectRoot, 'build-profile.json5');
+
+        if (!fs.existsSync(buildProfilePath)) {
+            console.log(`build-profile.json5 not found at ${projectRoot}`);
+            return undefined;
+        }
+
+        const fileContent = fs.readFileSync(buildProfilePath, 'utf-8');
+        const config = json5.parse(fileContent);
+        const products = config?.app?.products;
+
+        if (Array.isArray(products) && products.length > 0) {
+            const compileSdkVersion = products[0]?.compileSdkVersion;
+            if (typeof compileSdkVersion === 'number') {
+                return compileSdkVersion;
+            }
+        }
+
+        return undefined;
+    } catch (err) {
+        console.log(`Error reading build-profile.json5 at ${projectRoot}: ${err}`);
+        return undefined;
+    }
+}
 
 // Function to copy necessary files to the project directory
 function copyFilesToProject(projectDir: string, KEYSTORE_FILE: string, PROFILE_CERT_FILE: string, UNSIGNED_PROFILE_TEMPLATE: string): void {
@@ -169,6 +201,8 @@ export function generateSigningConfigs(projectDir?: string, SDK_HOME?: string): 
     const sdkPath = path.join(SDK_HOME, String(sdkVersion));
     if (!fs.existsSync(sdkPath)) {
         throw new Error(`SDK path does not exist: ${sdkPath}`);
+    }else{
+        console.log(`SDK path is: ${sdkPath}`);
     }
 
     // Define constants for SDK paths inside the function
